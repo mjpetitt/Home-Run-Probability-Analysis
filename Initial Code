@@ -1,0 +1,53 @@
+#All of the following analysis is based off of data taken from baseballsavant.com
+library(dplyr)
+library(ggplot2)
+library(mgcv)
+
+sd(SC_Homeruns_15$hit_speed)
+[1] 4.359454
+> mean(SC_Homeruns_15$hit_speed)
+[1] 103.1975
+
+Statcast_15 <- mutate(Statcast_15, Outcome = ifelse(events == "Home Run",  1, 0))
+
+p1 <- ggplot(Statcast_15, aes(hit_angle, hit_speed, color = events)) + 
+  geom_point() + ggtitle(paste("In-Play Outcomes"))
+print(p1)
+
+fit2 <- gam(Outcome ~ s(hit_angle, hit_speed), family = binomial, 
+            data = Statcast_15)
+
+Statcast_15 <- mutate(Statcast_15, 
+                      Prob_Home_Run = exp(predict(fit2))/(1 + exp(predict(fit2))))
+
+p2 <- ggplot(Statcast_15, aes(x = hit_angle, y = hit_speed,
+                              color = Prob_Home_Run)) + geom_point() + scale_colour_gradient(limits = c(0, 1), 
+                                                                                             low = "blue", high = "red") + geom_vline(xintercept = 0, color = "blue") + ggtitle(paste("Home Run Probabilities - 2015"))
+
+print(p2)
+
+v <- round(mean(Statcast_15$hit_speed) * c(1.067, 1.116, 1.166, 1.215, 1.264), 1)
+
+
+la <- seq(-10, 50, length = 100)
+
+data.predict <- rbind(data.frame(hit_speed = v[1], hit_angle = la), 
+                      
+                      data.frame(hit_speed = v[2], hit_angle = la), 
+                      
+                      data.frame(hit_speed = v[3], hit_angle = la),
+                      data.frame(hit_speed = v[4], hit_angle = la),
+                      data.frame(hit_speed = v[5], hit_angle = la))
+
+
+
+
+lp <- predict(fit2, data.predict)
+data.predict$Probability <- exp(lp)/(1 + exp(lp))
+data.predict$hit_speed <- factor(data.predict$hit_speed)
+
+p3 <- ggplot(data.predict, aes(hit_angle, Probability,
+                               group = hit_speed, color = hit_speed)) + geom_line() + ylab("Probability of Home Run") + ggtitle(paste("Home Run Probabilities Two Std. Dev Away from Mean - 2015"))
+
+
+print(p3)
